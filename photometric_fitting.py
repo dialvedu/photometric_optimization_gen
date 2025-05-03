@@ -30,7 +30,7 @@ class PhotometricFitting(object):
         self._setup_renderer()
 
     def _setup_renderer(self):
-        mesh_file = './data/head_template_mesh.obj'
+        mesh_file = './SyntheticStrokeVideo/photometric_optimization_gen/data/head_template_mesh.obj'
         self.render = Renderer(self.image_size, obj_filename=mesh_file).to(self.device)
 
     def optimize(self, images, landmarks, image_masks, savefolder=None):
@@ -67,7 +67,7 @@ class PhotometricFitting(object):
             landmarks3d = util.batch_orth_proj(landmarks3d, cam);
             landmarks3d[..., 1:] = - landmarks3d[..., 1:]
 
-            losses['landmark'] = util.l2_distance(landmarks2d[:, 17:, :2], gt_landmark[:, 17:, :2]) * config.w_lmks
+            losses['landmark'] = util.l2_distance(landmarks2d[:, 17:, :2], gt_landmark[:, 17:, :2]) * self.config.w_lmks
 
             all_loss = 0.
             for key in losses.keys():
@@ -110,16 +110,16 @@ class PhotometricFitting(object):
             landmarks3d = util.batch_orth_proj(landmarks3d, cam);
             landmarks3d[..., 1:] = - landmarks3d[..., 1:]
 
-            losses['landmark'] = util.l2_distance(landmarks2d[:, :, :2], gt_landmark[:, :, :2]) * config.w_lmks
-            losses['shape_reg'] = (torch.sum(shape ** 2) / 2) * config.w_shape_reg  # *1e-4
-            losses['expression_reg'] = (torch.sum(exp ** 2) / 2) * config.w_expr_reg  # *1e-4
-            losses['pose_reg'] = (torch.sum(pose ** 2) / 2) * config.w_pose_reg
+            losses['landmark'] = util.l2_distance(landmarks2d[:, :, :2], gt_landmark[:, :, :2]) * self.config.w_lmks
+            losses['shape_reg'] = (torch.sum(shape ** 2) / 2) * self.config.w_shape_reg  # *1e-4
+            losses['expression_reg'] = (torch.sum(exp ** 2) / 2) * self.config.w_expr_reg  # *1e-4
+            losses['pose_reg'] = (torch.sum(pose ** 2) / 2) * self.config.w_pose_reg
 
             ## render
             albedos = self.flametex(tex) / 255.
             ops = self.render(vertices, trans_vertices, albedos, lights)
             predicted_images = ops['images']
-            losses['photometric_texture'] = (image_masks * (ops['images'] - images).abs()).mean() * config.w_pho
+            losses['photometric_texture'] = (image_masks * (ops['images'] - images).abs()).mean() * self.config.w_pho
 
             all_loss = 0.
             for key in losses.keys():
@@ -186,10 +186,10 @@ class PhotometricFitting(object):
 
         # photometric optimization is sensitive to the hair or glass occlusions,
         # therefore we use a face segmentation network to mask the skin region out.
-        image_mask_folder = './FFHQ_seg/'
+        image_mask_folder = self.config.image_mask_folder
         image_mask_path = os.path.sep.join([image_mask_folder, image_name + '.npy'])
 
-        image = cv2.resize(cv2.imread(imagepath), (config.cropped_size, config.cropped_size)).astype(np.float32) / 255.
+        image = cv2.resize(cv2.imread(imagepath), (self.config.cropped_size, self.config.cropped_size)).astype(np.float32) / 255.
         image = image[:, :, [2, 1, 0]].transpose(2, 0, 1)
         images.append(torch.from_numpy(image[None, :, :, :]).to(self.device))
 
